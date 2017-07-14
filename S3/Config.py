@@ -134,20 +134,26 @@ class Config(object):
             error("IAM authentication not available -- missing module json")
             raise
         try:
-            conn = httplib.HTTPConnection(host='169.254.169.254', timeout = 2)
-            conn.request('GET', "/latest/meta-data/iam/security-credentials/")
-            resp = conn.getresponse()
-            files = resp.read()
-            if resp.status == 200 and len(files)>1:
-                conn.request('GET', "/latest/meta-data/iam/security-credentials/%s"%files)
-                resp=conn.getresponse()
-                if resp.status == 200:
-                    creds=json.load(resp)
-                    Config().update_option('access_key', creds['AccessKeyId'].encode('ascii'))
-                    Config().update_option('secret_key', creds['SecretAccessKey'].encode('ascii'))
-                    Config().update_option('access_token', creds['Token'].encode('ascii'))
+            container = os.environ.get("AWS_CONTAINER_CREDENTIALS_RELATIVE_URI", None)
+            if not container:
+                conn = httplib.HTTPConnection(host='169.254.169.254', timeout = 2)
+                conn.request('GET', "/latest/meta-data/iam/security-credentials/")
+                resp = conn.getresponse()
+                files = resp.read()
+                if resp.status == 200 and len(files)>1:
+                    conn.request('GET', "/latest/meta-data/iam/security-credentials/%s"%files)
+                    resp=conn.getresponse()
                 else:
                     raise IOError
+            else:
+                conn = httplib.HTTPConnection(host='169.254.170.2', timeout = 2)
+                conn.request('GET', container)
+                resp=conn.getresponse()
+            if resp.status == 200:
+                creds=json.load(resp)
+                Config().update_option('access_key', creds['AccessKeyId'].encode('ascii'))
+                Config().update_option('secret_key', creds['SecretAccessKey'].encode('ascii'))
+                Config().update_option('access_token', creds['Token'].encode('ascii'))
             else:
                 raise IOError
         except:
